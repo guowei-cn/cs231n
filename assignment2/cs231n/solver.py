@@ -119,7 +119,7 @@ class Solver(object):
         self.y_train = data['y_train']
         self.X_val = data['X_val']
         self.y_val = data['y_val']
-
+        
         # Unpack keyword arguments
         self.update_rule = kwargs.pop('update_rule', 'sgd')
         self.optim_config = kwargs.pop('optim_config', {})
@@ -284,9 +284,9 @@ class Solver(object):
             last_it = (t == num_iterations - 1)
             if first_it or last_it or epoch_end:
                 train_acc = self.check_accuracy(self.X_train, self.y_train,
-                    num_samples=self.num_train_samples)
+                    num_samples=self.num_train_samples, batch_size=self.batch_size)
                 val_acc = self.check_accuracy(self.X_val, self.y_val,
-                    num_samples=self.num_val_samples)
+                    num_samples=self.num_val_samples, batch_size=self.batch_size)
                 self.train_acc_history.append(train_acc)
                 self.val_acc_history.append(val_acc)
                 self._save_checkpoint()
