@@ -321,8 +321,8 @@ def batchnorm_backward_alt(dout, cache):
     
     dx_norm = dout * gamma
     dvar = np.sum(dx_norm * (x - mean) * (-0.5) * (var + eps)**(-1.5), axis=0)
-    dmean = np.sum(-1 * dx_norm * (var + eps)**(-0.5), axis=0) + dvar * -2 * np.mean(x - mean, axis=0)
-    dx = dx_norm * (var + eps)**(0.5) + dmean * 1.0/N + dvar * 2.0/N * (x - mean)
+    dmean = np.sum(-1 * dx_norm * (var + eps)**(-0.5), axis=0) + dvar * np.mean(-2 * (x - mean), axis=0)
+    dx = dx_norm * (var + eps)**(-0.5) + dmean * 1/N + dvar * 2/N * (x - mean)
 
 
     dgamma = np.sum(x_norm * dout, axis = 0)
@@ -658,8 +658,8 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
         old information is discarded completely at every time step, while
         momentum=1 means that new information is never incorporated. The
         default of momentum=0.9 should work well in most situations.
-      - running_mean: Array of shape (D,) giving running mean of features
-      - running_var Array of shape (D,) giving running variance of features
+      - running_mean: Array of shape (C,) giving running mean of features
+      - running_var Array of shape (C,) giving running variance of features
 
     Returns a tuple of:
     - out: Output data, of shape (N, C, H, W)
@@ -675,8 +675,10 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # Your implementation should be very short; ours is less than five lines. #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    # (N, C, H, W)->(N, H, W, C)->(N*H*W, C)
+    N, C, H, W = x.shape
+    temp_out, cache = batchnorm_forward(x.transpose(0, 2, 3, 1).reshape(-1, C), gamma, beta, bn_param)
+    out = temp_out.reshape(N, H, W, C).transpose(0, 3, 1, 2)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -709,9 +711,10 @@ def spatial_batchnorm_backward(dout, cache):
     # Your implementation should be very short; ours is less than five lines. #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
-
+    # (N, C, H, W)->(N, H, W, C)
+    N, C, H, W = dout.shape
+    dtemp_x, dgamma, dbeta = batchnorm_backward_alt(dout.transpose(0, 2, 3, 1).reshape(-1, C), cache)
+    dx = dtemp_x.reshape(N, H, W, C).transpose(0, 3, 1, 2)
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
