@@ -10,7 +10,7 @@ class ThreeLayerConvNet(object):
     """
     A three-layer convolutional network with the following architecture:
 
-    conv - relu - 2x2 max pool - affine - relu - affine - softmax
+    conv - relu - 2x2 max pool (HH: 2, WW: 2, Str: 2) - affine - relu - affine - softmax
 
     The network operates on minibatches of data that have shape (N, C, H, W)
     consisting of N images, each with height H and width W and with C input
@@ -54,8 +54,14 @@ class ThreeLayerConvNet(object):
         # the start of the loss() function to see how that happens.                #                           
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
+        C, H, W = input_dim
+        HH = WW = filter_size
+        self.params['W1'] = np.random.randn(filter_size, C, HH, WW) * weight_scale
+        self.params['b1'] = np.zeros(filter_size)
+        self.params['W2'] = np.random.randn(int(filter_size*H*W/4), hidden_dim) * weight_scale
+        self.params['b2'] = np.zeros(hidden_dim)
+        self.params['W3'] = np.random.randn(hidden_dim, num_classes) * weight_scale
+        self.params['b3'] = np.zeros(num_classes)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -95,7 +101,9 @@ class ThreeLayerConvNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        conv_out, conv_cache = conv_relu_pool_forward(X, W1, b1, conv_param, pool_param)
+        hid_out, hid_cache = affine_relu_forward(conv_out, W2, b2)
+        scores, sco_cache = affine_forward(hid_out, W3, b3)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -118,7 +126,22 @@ class ThreeLayerConvNet(object):
         ############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        loss, dsco = softmax_loss(scores, y)
+        
+        loss += self.reg*(np.sum(W1*W1)**2 + np.sum(W2*W2)**2 + np.sum(W3*W3)**2)
+        dhid_out, dw3, db3 = affine_backward(dsco, sco_cache)
+        dconv_out, dw2, db2 = affine_relu_backward(dhid_out, hid_cache)
+        dx, dw1, db1 = conv_relu_pool_backward(dconv_out, conv_cache)
+        dw1 += self.reg*W1
+        dw2 += self.reg*W2
+        dw3 += self.reg*W3
+        
+        grads['W1'] = dw1
+        grads['b1'] = db1
+        grads['W2'] = dw2
+        grads['b2'] = db2
+        grads['W3'] = dw3
+        grads['b3'] = db3
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
