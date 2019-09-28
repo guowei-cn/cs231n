@@ -199,8 +199,11 @@ class FullyConnectedNet(object):
         for i in range(self.num_layers):
             # The first layer
             if i == 0:
-                self.params['W'+str(i+1)] = np.random.randn(input_dim, hidden_dims[0]) * weight_scale
+                self.params['W'+str(i+1)] = np.random.randn(input_dim, hidden_dims[i]) * weight_scale
                 self.params['b'+str(i+1)] = np.zeros(hidden_dims[0])
+                if self.normalization:
+                    self.params['gamma'+str(i+1)] = np.ones(hidden_dims[0])
+                    self.params['beta'+str(i+1)] = np.zeros(hidden_dims[0])
                 continue
             # the final layer
             if i == self.num_layers - 1:
@@ -210,6 +213,9 @@ class FullyConnectedNet(object):
             # the middle layers
             self.params['W'+str(i+1)] = np.random.randn(hidden_dims[i-1], hidden_dims[i]) * weight_scale
             self.params['b'+str(i+1)] = np.zeros(hidden_dims[i])
+            if self.normalization:
+                    self.params['gamma'+str(i+1)] = np.ones(hidden_dims[i])
+                    self.params['beta'+str(i+1)] = np.zeros(hidden_dims[i])
             
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -277,13 +283,37 @@ class FullyConnectedNet(object):
         for i in range(self.num_layers):
             W = self.params['W'+str(i+1)]
             b = self.params['b'+str(i+1)]
+                
             if i == self.num_layers - 1: # the final layer only affine operation
                 scores, cache = affine_forward(scores, W, b)
                 cache_dict['cache_L'+str(i+1)] = cache
             else: # other layers are the affine+relu operation
-                scores, cache = affine_relu_forward(scores, W, b)
-                cache_dict['cache_L'+str(i+1)] = cache
-        
+                if self.normalization:
+                    gamma = self.params['gamma'+str(i+1)]
+                    beta = self.params['beta'+str(i+1)]
+                    
+                if self.normalization and self.use_dropout: # norm and drop
+                    if self.normalization == 'batchnorm':
+                        scores, cache = affine_bn_relu_forward_drop(scores, W, b, gamma, beta, 
+                                                                self.bn_params[i], self.dropout_param)
+                    if self.normalization == 'layernorm':
+                        scores, cache = affine_ln_relu_forward_drop(scores, W, b, gamma, beta, 
+                                                                self.bn_params[i], self.dropout_param)
+                    cache_dict['cache_L'+str(i+1)] = cache
+                if self.normalization and not self.use_dropout: # only norm option
+                    if self.normalization == 'batchnorm':
+                        scores, cache = affine_bn_relu_forward(scores, W, b, gamma, beta, self.bn_params[i])
+                    if self.normalization == 'layernorm':
+                        scores, cache = affine_ln_relu_forward(scores, W, b, gamma, beta, self.bn_params[i])
+                    cache_dict['cache_L'+str(i+1)] = cache
+                    
+                if self.use_dropout and not self.normalization: # only dropout option
+                    scores, cache = affine_relu_forward_drop(scores, W, b, self.dropout_param)
+                    cache_dict['cache_L'+str(i+1)] = cache
+                if not self.use_dropout and not self.normalization:
+                    scores, cache = affine_relu_forward(scores, W, b)
+                    cache_dict['cache_L'+str(i+1)] = cache
+
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
@@ -318,10 +348,34 @@ class FullyConnectedNet(object):
                 grads['W'+str(i+1)] = dW + self.reg * W
                 grads['b'+str(i+1)] = db
             else:
-                dout, dW, db = affine_relu_backward(dout, cache_dict['cache_L'+str(i+1)])
-                grads['W'+str(i+1)] = dW + self.reg * W
-                grads['b'+str(i+1)] = db
+                if self.normalization and self.use_dropout:
+                    if self.normalization == 'batchnorm':
+                        dout, dW, db, dgamma, dbeta = affine_bn_relu_backward_drop(dout, cache_dict['cache_L'+str(i+1)])
+                    if self.normalization == 'layernorm':
+                        dout, dW, db, dgamma, dbeta = affine_ln_relu_backward_drop(dout, cache_dict['cache_L'+str(i+1)])
+                    grads['W'+str(i+1)] = dW + self.reg * W
+                    grads['b'+str(i+1)] = db
+                    grads['gamma'+str(i+1)] = dgamma
+                    grads['beta'+str(i+1)] = dbeta
+                if self.normalization and not self.use_dropout: # only norm option
+                    if self.normalization == 'batchnorm':
+                        dout, dW, db, dgamma, dbeta = affine_bn_relu_backward(dout, cache_dict['cache_L'+str(i+1)])
+                    if self.normalization == 'layernorm':
+                        dout, dW, db, dgamma, dbeta = affine_ln_relu_backward(dout, cache_dict['cache_L'+str(i+1)])
+                    grads['W'+str(i+1)] = dW + self.reg * W
+                    grads['b'+str(i+1)] = db
+                    grads['gamma'+str(i+1)] = dgamma
+                    grads['beta'+str(i+1)] = dbeta
+                if self.use_dropout and not self.normalization: # only dropout option
+                    dout, dW, db = affine_relu_backward_drop(dout, cache_dict['cache_L'+str(i+1)])
+                    grads['W'+str(i+1)] = dW + self.reg * W
+                    grads['b'+str(i+1)] = db
+                if not self.use_dropout and not self.normalization:
+                    dout, dW, db = affine_relu_backward(dout, cache_dict['cache_L'+str(i+1)])
+                    grads['W'+str(i+1)] = dW + self.reg * W
+                    grads['b'+str(i+1)] = db
                 
+                    
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         ############################################################################
         #                             END OF YOUR CODE                             #
